@@ -1,0 +1,112 @@
+# Json-Server operator task
+## Project's requirements:
+1. `DONE` The user should be able to create an JsonServer object in the Kubernetes API which will represent a json-server instance they want to create
+2. `DONE` They will be able to specify the replicas to use, and the json config their application needs
+3. `DONE` The JsonServer controller will watch for JsonServer objects and create a new Deployment for each JsonServer object it finds, along with a Service to expose the Deployment, and ConfigMap to store the json config which will be mounted into the Deployment
+4. `DONE` The JsonServer objects must adhere to the naming convention app-${name} and the K8s API should not accept a JsonServer object where metadata.name does not adhere to this convention
+5. `DONE` The config should be validated to ensure it is a valid JSON object
+6. `DONE` Should the JsonServer object be modified, the related Deployment or ConfigMap should be updated accordingly.
+7. `DONE` Should the JsonServer object be deleted, the related Deployment, Service, and ConfigMap should be deleted. 
+8. `DONE` Implement the JsonServer such that the kubectl scale command can be used to scale the replicas 
+9. `DONE` Mutating webhook that sets replicas for jsonserver to 2 if not defined.
+10. `DONE`Validating webhook that checks is replicas are not less than zero and also checks if jsonConfig is a valid json.
+11. `SEE NOTES SECTION` Build a CI pipeline to push to ttl.sh 
+12. `SEE NOTES SECTION` Use a GitOps pattern to deploy the solution into your local k8s cluster
+
+### Project's requirement improvements:
+1. There is additional sync state `NotSynced` added. This state is used for a period between resource update and reconciliation. 
+   So, for example, if number of desired replicas will not mach available replicas then status will be `NotSynced`.  
+2. `Status` subresource has additional field `replicas`.
+3. For `jsonservers.example.com` resource events are emitted, so the user can have a detailed view on what is happening.
+4. Created config map has `md5sum` label.
+
+## Notes
+### Missing probes in Deployment
+Deployments created by this operator do not have probes defined.
+Requirements clearly define (page 2) Deployment that should be created by operator, and there are no probes there.
+
+
+### Requirement 11 - "Use Build a CI pipeline to push to ttl.sh"
+Pipeline definition formats depend on the system used for building the artefacts.
+You used different syntax for GithubAction, Jenkins or GitLab.
+
+I have prepared a shell script that builds and deploys the operator on the cluster. See `Deployment - quick start` section.
+
+### Requirement 12 - "Use a GitOps pattern to deploy"
+To use GitOps pattern an additional tools like `ArgoCD` or `Jenkins` are required.
+
+---
+
+## Deployment - quick start
+### Pre-requirements 
+* kubectl
+* Docker engine
+* uuidgen / or something else to generate uuid
+* cert-manager installed on the cluster 
+
+
+### Build and deploy from source
+#### Pre-requirements
+1. kubectl installed and configured with admin role
+2. bash interpreter installed
+3. uuidgen installed `sudo apt-get -y uuid-runtime`
+
+#### Variant: Easy
+```shell
+./build.sh easy
+```
+_If you don't have a bash or uuidgen use `Variant: Step by Step`._
+
+
+#### Variant: Step by step 
+1. Install cert manager on your cluster (if you don't have one)
+```shell
+# Install cert-manager if you do not have one.
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.15.1/cert-manager.yaml
+```
+2. Build and install the operator
+```shell
+# generate unique ttl.sh container image name 
+export IMG="ttl.sh/$(uuidgen):2h"
+# 1. Compile controller
+# 2. Generate operator resources into operator-resources.yaml
+# 1. Build controller image and push it to ttl.sh under ${IMG} name
+docker build -t "${IMG}" --build-arg IMG="${IMG}" . && docker push "${IMG}"
+
+# Deploy operator on cluster defined in '.kube/config'
+docker run "${IMG}" /print-resources | kubectl apply -f -
+```
+### Testing
+#### Create an example jsonServer
+```shell
+kubectl apply -f config/samples/example.com_v1_jsonserver.yaml && sleep 2 && kubectl describe jsonservers.example.com app-jsonserver-sample 
+```
+
+#### Delete Configmap and wait for it to be recreated 
+```shell
+kubectl delete cm app-jsonserver-sample && sleep 1 && kubectl get cm app-jsonserver-sample 
+```
+
+#### Scale up and down
+```shell
+kubectl scale JsonServer app-jsonserver-sample --replicas=4
+kubectl get pods -l 'app=app-jsonserver-sample'
+kubectl scale JsonServer app-jsonserver-sample --replicas=2
+kubectl get pods -l 'app=app-jsonserver-sample'
+```
+
+
+
+### Remove operator and related resources
+```shell
+make undeploy || docker run "${IMG}" /print-resources | kubectl delete -f - || kubectl delete crd jsonservers.example.com
+```
+
+---
+# Future improvements / TODOs:
+1. Liveness and readiness probes should be added to deployment controlled by this operator.
+2. Remove unnecessary code / comments / files generated by `Operator SDK framework`.
+3. Documentation for operator.
+4. Helm package.
+5. Integration tests. _I am not familiar with testing framework suggested by OperatorSDK. I was not able to provide integration tests as I have only few hours for this task._ 
+6. More unit tests.

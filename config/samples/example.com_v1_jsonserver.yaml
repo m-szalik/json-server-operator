@@ -1,0 +1,25 @@
+apiVersion: example.com/v1
+kind: JsonServer
+metadata:
+  labels:
+    app.kubernetes.io/name: jsonserver
+    app.kubernetes.io/instance: jsonserver-sample
+    app.kubernetes.io/part-of: json-server-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: json-server-operator
+  name: app-jsonserver-sample
+spec:
+  #replicas: 2
+  jsonConfig: |
+    {
+    "people": [
+      {
+        "id": 1,
+        "name": "Person A"
+      },
+      {
+        "id": 2,
+        "name": "Person B"
+      }
+    ]
+    }
