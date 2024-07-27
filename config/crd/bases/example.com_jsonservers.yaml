@@ -14,7 +14,11 @@ spec:
     singular: jsonserver
   scope: Namespaced
   versions:
-  - name: v1
+  - additionalPrinterColumns:
+    - jsonPath: .status.state
+      name: Status
+      type: string
+    name: v1
     schema:
       openAPIV3Schema:
         description: JsonServer is the Schema for the jsonservers API

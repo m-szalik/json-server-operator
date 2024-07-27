@@ -50,6 +50,7 @@ type JsonServerStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:subresource:scale:specpath=.spec.replicas,statuspath=.status.replicas,selectorpath=.status.selector
+// +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.state`
 // JsonServer is the Schema for the jsonservers API
 type JsonServer struct {
 	metav1.TypeMeta   `json:",inline"`
